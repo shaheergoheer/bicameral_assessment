@@ -1,0 +1,56 @@
+{ 
+    "Sample 1":
+    {
+    "Customer Name": "Redline Auto Center",
+    "Customer #": "10322",
+    "Invoice Number": "IK-901122694",
+    "Invoice Amount": "20",
+    "Invoice Date": "2019-12-05",
+    "Comments": ""
+    },
+    "Sample 2":
+    {
+        "Customer Name": "Titan Heavy Industries",
+        "Customer #": "120429",
+        "Invoice Number": "019854",
+        "Invoice Amount": "55350",
+        "Invoice Date": "2024-02-25",
+        "Comments": ""
+    },
+    "Sample 3":
+    {
+        "Customer Name": "Titan Heavy Industries",
+        "Customer #": "120422",
+        "Invoice Number": "024-2031893",
+        "Invoice Amount": "0",
+        "Invoice Date": "2024-05-05",
+        "Comments": ""
+    },
+    "Sample 4":
+    {
+        "Customer Name": "Bella's Bakery",
+        "Customer #": "21031",
+        "Invoice Number": "2024492186",
+        "Invoice Amount": "2022",
+        "Invoice Date": "2022-05-02",
+        "Comments": ""
+    },
+    "Sample 5":
+    {
+        "Customer Name": "Bread Co",
+        "Customer #": "204203",
+        "Invoice Number": "18587422",
+        "Invoice Amount": "0",
+        "Invoice Date": "2024-03-24",
+        "Comments": ""
+    },
+    "Sample 6":
+    {
+        "Customer Name": "Bread Co",
+        "Customer #": "204209",
+        "Invoice Number": "98531002",
+        "Invoice Amount": "0",
+        "Invoice Date": "2024-01-29",
+        "Comments": ""
+    }
+}
