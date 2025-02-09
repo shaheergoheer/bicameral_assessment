@@ -4,7 +4,7 @@ import boto3
 from botocore.exceptions import ClientError
 from collections import defaultdict
 import os
-from moto import mock_aws
+#from moto import mock_aws
 from dotenv import load_dotenv
 
 # Loading environment variables
@@ -100,7 +100,7 @@ class DocumentMatcher:
                 flattened_doc[new_key] = value
         return flattened_doc
 
-@mock_aws 
+#@mock_aws 
 def create_table(table_name):
     """This function creates a table with the given table name."""
     try:
