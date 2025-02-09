@@ -16,8 +16,8 @@ s3 = boto3.client('s3', region_name=os.getenv('AWS_DEFAULT_REGION'))
 sqs = boto3.client('sqs', region_name=os.getenv('AWS_DEFAULT_REGION'))
 lambda_client = boto3.client('lambda', region_name=os.getenv('AWS_DEFAULT_REGION'))
 
-QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/050451393944/MyQueue"
-LAMBDA_FUNCTION_NAME = "ProcessNewDocument"
+QUEUE_URL = os.getenv('QUEUE_URL')
+LAMBDA_FUNCTION_NAME = os.getenv('LAMBDA_FUNCTION_NAME')
 
 class DocumentMatcher:
     def __init__(self):
