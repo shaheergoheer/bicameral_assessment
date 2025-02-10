@@ -3,25 +3,26 @@ import json
 import boto3
 from botocore.exceptions import ClientError
 from collections import defaultdict
-import io
+import os
 from moto import mock_aws
+from dotenv import load_dotenv
 
-# QUEUE_URL = "https://sqs.eu-north-1.amazonaws.com/050451393944/MyQueue"
-LAMBDA_FUNCTION_NAME = "ProcessNewDocument"
+# Loading environment variables
+load_dotenv()
 
-# AWS Clients
 class DocumentMatcher:
     def __init__(self):
         self.samples: Dict[str, Dict] = {}
         self.documents: list[Dict] = []
         self.matches: Dict[str, List[Dict]] = {}
         
-        dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
-        lambda_client = boto3.client('lambda', region_name='us-east-1')
-        self.sqs = boto3.client('sqs', region_name='us-east-1')
-        
-        self.sample_table = dynamodb.Table("SampleTable")
-        self.matched_table = dynamodb.Table("MatchedDocuments")
+        dynamodb = boto3.resource('dynamodb', region_name=os.getenv('AWS_DEFAULT_REGION'))
+        self.sqs = boto3.client('sqs', region_name=os.getenv('AWS_DEFAULT_REGION'))
+        self.queue_url = self.sqs.create_queue(QueueName='TestQueue')['QueueUrl']
+
+        # DynamoDB tables
+        self.sample_table = dynamodb.Table("test_SampleTable")
+        self.matched_table = dynamodb.Table("test_MatchedDocuments")
 
     def add_sample(self, sample_id: str, sample_description: Dict):
         self.samples[sample_id] = sample_description
@@ -73,24 +74,12 @@ class DocumentMatcher:
                             self.matches[match_id].append(doc)
                             self.matched_table.put_item(Item={"sample_id": match_id, "description": doc})
     
-    # def enqueue_document(self, document: Dict):
-    #     self.sqs.send_message(QueueUrl=QUEUE_URL, MessageBody=json.dumps(document))
-        
-    #     try:
-    #         response = self.invoke_lambda_for_processing(document)
-    #         print(f"Lambda function invoked successfully: {response}")
-    #     except Exception as e:
-    #         print(f"Error invoking lambda function: {str(e)}")
-            
-    
-    # def invoke_lambda_for_processing(self, document: Dict):
-    #     """Invoke AWS Lambda to process the document."""
-    #     response = lambda_client.invoke(
-    #         FunctionName=LAMBDA_FUNCTION_NAME,
-    #         InvocationType="Event",
-    #         Payload=json.dumps(document)
-    #     )
-    #     return response
+    def enqueue_document(self, document: Dict):
+        self.sqs.send_message(QueueUrl=self.queue_url, MessageBody=json.dumps(document))
+
+        event = {"Records": [{"body": json.dumps(document)}]}
+        context = {}
+        self.lambda_handler(event, context)
         
     def get_samples(self):
         return self.samples
@@ -110,10 +99,31 @@ class DocumentMatcher:
             else:
                 flattened_doc[new_key] = value
         return flattened_doc
-  
-@mock_aws
+
+    def lambda_handler(self, event, context):
+        for record in event['Records']:
+            document = json.loads(record['body'])
+            try:
+                self.add_document(document)
+                
+            except Exception as e:
+                return {
+                    'statusCode': 500,
+                    'body': json.dumps({
+                        'message': 'Error processing document',
+                        'error': str(e)
+                    })
+                }
+        return { "statusCode": 200,
+                'body': json.dumps({
+                    'message': 'Documents processed successfully'
+                })
+            }
+        
+@mock_aws 
 def create_table(table_name):
-    dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+    """This function creates a table with the given table name."""
+    dynamodb = boto3.resource('dynamodb', region_name=os.getenv('AWS_DEFAULT_REGION'))
     try:
         table = dynamodb.Table(table_name)
         table.load()
@@ -129,94 +139,33 @@ def create_table(table_name):
         else:
             raise e
 
-@mock_aws
-def toy_document_matcher():
-    print("\nTest 1\n")
-    dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
-    
-    # Creating a table
-    sample_table = dynamodb.create_table(
-        TableName='SampleTable',
-        KeySchema=[{'AttributeName': 'sample_id', 'KeyType': 'HASH'}],
-        AttributeDefinitions=[{'AttributeName': 'sample_id', 'AttributeType': 'S'}],
-        ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
-    )
-    matched_table = dynamodb.create_table(
-        TableName='MatchedDocuments',
-        KeySchema=[{'AttributeName': 'sample_id', 'KeyType': 'HASH'}],
-        AttributeDefinitions=[{'AttributeName': 'sample_id', 'AttributeType': 'S'}],
-        ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
-    )
-    
-    # Waiting for the table to be created
-    sample_table.wait_until_exists()
-    matched_table.wait_until_exists()
-    
+@mock_aws()
+def main():
+    # Initializing DocumentMatcher instance. 
     matcher = DocumentMatcher()
     
-    matcher.add_sample("Sample 1", {
-        "Invoice Number": "poiu", 
-        "Payment Amount": "$111", 
-        "Company Name": "Alice's Apples", 
-        "Date": "1-11-2023"
-        })
+    # Creating sample and match tables
+    create_table("test_SampleTable")
+    create_table("test_MatchedDocuments")
+
+    # Loading samples
+    with open("samples.json", "r") as file:
+        samples_file = json.load(file)
         
-    matcher.add_sample("Sample 2", {
-        "Invoice Number": "abc", 
-        "Payment Amount": "$321", 
-        "Company Name": "Bob's Banana", 
-        "Date": "1-11-2023"
-        })
-
-    matcher.add_sample("Sample 3", {
-        "Invoice Number": "xkcd", 
-        "Payment Amount": "$553", 
-        "Company Name": "Charlie's Cherris", 
-        "Date": "1-14-2023"
-        })
+    for sample_id, sample_desc in samples_file.items():
+        matcher.add_sample(sample_id, sample_desc)
     
-    doc1 = {"key1": 1234, "key2": "abc", "key3": "qwer"} 
-    doc2 = {"key1": "asdf", "key2": 1234, "key3": "xyz"} 
-
-    matcher.add_document(doc1)
-    matcher.add_document(doc2)
-    
-    print("\nPrinting Samples")
     print(json.dumps(matcher.get_samples(), indent=2))
-    
-    print("\nPrinting Matches")
-    print(json.dumps(matcher.get_matches(), indent=2))
- 
-# toy_document_matcher()
-
-@mock_aws
-def test_document_matcher():
-    print("\nTest 2\n")
-    create_table("SampleTable")
-    create_table("MatchedDocuments")
-    
-    matcher = DocumentMatcher()
-    
-    # Adding samples
-    with open('samples.json', 'r') as file:
-        sample_file = json.load(file)
-
-        for sample_id, sample_desc in sample_file.items():
-            matcher.add_sample(sample_id, sample_desc)
-    
-    # Adding documents
-    with open('documents.json', 'r') as file:
-        doc_file = json.load(file)
-    
-        for idx, doc in enumerate(doc_file.values()):
-            matcher.add_document(doc)
         
-    # Printing samples
-    print("\nPrinting Samples")
-    print(json.dumps(matcher.get_samples(), indent=2))
-    
-    # Printing documents
-    print("\nPrinting Matches")
-    print(json.dumps(matcher.get_matches(), indent=2))
+    with open("documents.json", "r") as file:
+        document_file = json.load(file)
+        
+    for doc in document_file.values():
+        matcher.enqueue_document(doc)
 
-test_document_matcher()
+    print(json.dumps(matcher.get_matches(), indent=2))
+    
+if __name__ == "__main__":
+    main()
+    
+    
