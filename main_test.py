@@ -48,6 +48,22 @@ class DocumentMatcher:
                 
         self.indirect_match(flattened_doc)
         
+    def count_matching_values(self,document):
+        '''Writing this function in interview'''
+        matched_samples={}
+        max_matched=0
+        for sample_id, sample_desc in self.samples.items():
+            matching_keys_counter=0
+            for doc_value in document.values():
+                if doc_value in sample_desc:
+                    if sample_id in matched_samples:
+                        matched_samples[sample_id]['document']=document.values()
+                    matching_keys_counter+=1
+            if max_matched<matching_keys_counter:
+                max_matched=matching_keys_counter
+                matched_sample=sample_id
+        return matched_sample
+     
     def direct_match(self, document: Dict):
         """The function loops through each sample and compares the document with every sample, 
         returning a list of keys that identify the samples the document matched."""
@@ -120,6 +136,8 @@ class DocumentMatcher:
                 })
             }
         
+print("Hello World")
+
 @mock_aws 
 def create_table(table_name):
     """This function creates a table with the given table name."""
