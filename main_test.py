@@ -157,6 +157,26 @@ def create_table(table_name):
         else:
             raise e
 
+
+@mock_aws 
+def delete_table(table_name):
+    """This function creates a table with the given table name."""
+    dynamodb = boto3.resource('dynamodb', region_name=os.getenv('AWS_DEFAULT_REGION'))
+    try:
+        table = dynamodb.Table(table_name)
+        table.load()
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'ResourceNotFoundException':
+            table = dynamodb.create_table(
+                TableName=table_name,
+                KeySchema=[{'AttributeName': 'sample_id', 'KeyType': 'HASH'}],
+                AttributeDefinitions=[{'AttributeName': 'sample_id', 'AttributeType': 'S'}],
+                ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+            )
+            table.wait_until_exists()
+        else:
+            raise e
+
 @mock_aws()
 def main():
     # Initializing DocumentMatcher instance. 
